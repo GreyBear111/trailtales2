@@ -16,7 +16,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -236,14 +235,5 @@ public class LoginView {
         });
     backToLoginButton.setOnAction(e -> stage.setScene(createLoginScene(stage)));
     return new Scene(layout, 550, 650);
-  }
-
-  private GridPane createGridPane() {
-    GridPane grid = new GridPane();
-    grid.setAlignment(Pos.CENTER);
-    grid.setHgap(10);
-    grid.setVgap(10);
-    grid.setPadding(new Insets(25, 25, 25, 25));
-    return grid;
   }
 }
