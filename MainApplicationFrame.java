@@ -1,10 +1,30 @@
 package com.trailtales.ui;
 
 import atlantafx.base.theme.PrimerDark;
-import com.trailtales.dto.*;
-import com.trailtales.entity.*;
-import com.trailtales.service.*;
-import com.trailtales.ui.managers.*;
+import com.trailtales.dto.EventCreationDto;
+import com.trailtales.dto.JourneyCreationDto;
+import com.trailtales.dto.JourneyUpdateDto;
+import com.trailtales.dto.LocationCreationDto;
+import com.trailtales.dto.PhotoUploadDto;
+import com.trailtales.dto.TagCreationDto;
+import com.trailtales.entity.Event;
+import com.trailtales.entity.Journey;
+import com.trailtales.entity.Location;
+import com.trailtales.entity.Photo;
+import com.trailtales.entity.Tag;
+import com.trailtales.entity.User;
+import com.trailtales.service.EventService;
+import com.trailtales.service.JourneyService;
+import com.trailtales.service.LocationService;
+import com.trailtales.service.PhotoService;
+import com.trailtales.service.TagService;
+import com.trailtales.service.UserService;
+import com.trailtales.ui.managers.EventViewManager;
+import com.trailtales.ui.managers.JourneyViewManager;
+import com.trailtales.ui.managers.LocationViewManager;
+import com.trailtales.ui.managers.PhotoViewManager;
+import com.trailtales.ui.managers.TagViewManager;
+import com.trailtales.ui.util.UIConstants; // Залишаємо UIConstants
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.io.File;
@@ -14,7 +34,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List; // Потрібно для Function<List<String>...
 import java.util.Set;
+import java.util.function.BiFunction; // Потрібно для createDetailRow
+import java.util.function.Function; // Потрібно для createListViewForDetails
 import java.util.stream.Collectors;
 import javafx.collections.FXCollections;
 import javafx.geometry.HPos;
@@ -22,8 +45,24 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -95,68 +134,6 @@ public class MainApplicationFrame {
     return new Scene(mainLayout, 1200, 800);
   }
 
-  private VBox createSideBar() {
-    VBox sideBar = new VBox(0);
-    sideBar.setPadding(new Insets(10, 0, 10, 0));
-    sideBar.setStyle(UIConstants.BACKGROUND_STYLE_SIDEBAR);
-    sideBar.setPrefWidth(220);
-
-    Text appTitle = new Text("TrailTales");
-    appTitle.setFont(Font.font("Arial", FontWeight.BOLD, 22));
-    appTitle.setFill(Color.WHITE);
-    HBox titleBox = new HBox(appTitle);
-    titleBox.setAlignment(Pos.CENTER);
-    titleBox.setPadding(new Insets(15, 0, 20, 0));
-    sideBar.getChildren().add(titleBox);
-
-    Button journeysBtn = createSidebarButton("Подорожі");
-    Button eventsBtn = createSidebarButton("Події");
-    Button tagsBtn = createSidebarButton("Теги");
-    Button locationsBtn = createSidebarButton("Локації");
-    Button photosBtn = createSidebarButton("Фотографії");
-    Button logoutBtn = createSidebarButton("Вийти");
-
-    journeysBtn.setOnAction(
-        e -> {
-          mainLayout.setCenter(journeyViewManager.createJourneyPane());
-          setActiveSidebarButton(journeysBtn);
-        });
-    eventsBtn.setOnAction(
-        e -> {
-          mainLayout.setCenter(eventViewManager.createEventPane());
-          setActiveSidebarButton(eventsBtn);
-        });
-    tagsBtn.setOnAction(
-        e -> {
-          mainLayout.setCenter(tagViewManager.createTagPane());
-          setActiveSidebarButton(tagsBtn);
-        });
-    locationsBtn.setOnAction(
-        e -> {
-          mainLayout.setCenter(locationViewManager.createLocationPane());
-          setActiveSidebarButton(locationsBtn);
-        });
-    photosBtn.setOnAction(
-        e -> {
-          mainLayout.setCenter(photoViewManager.createPhotoPane());
-          setActiveSidebarButton(photosBtn);
-        });
-    logoutBtn.setOnAction(
-        e -> {
-          currentUser = null;
-          logoutCallback.run();
-        });
-
-    sideBar.getChildren().addAll(journeysBtn, eventsBtn, tagsBtn, locationsBtn, photosBtn);
-
-    VBox bottomBox = new VBox(logoutBtn);
-    VBox.setVgrow(bottomBox, Priority.ALWAYS);
-    bottomBox.setAlignment(Pos.BOTTOM_LEFT);
-    sideBar.getChildren().add(bottomBox);
-
-    return sideBar;
-  }
-
   private Button createSidebarButton(String text) {
     Button button = new Button(text);
     button.setStyle(UIConstants.SIDEBAR_BUTTON_STYLE);
@@ -176,6 +153,72 @@ public class MainApplicationFrame {
           }
         });
     return button;
+  }
+
+  private VBox createSideBar() {
+    VBox sideBar = new VBox(0);
+    sideBar.setPadding(new Insets(10, 0, 10, 0));
+    sideBar.setStyle(UIConstants.BACKGROUND_STYLE_SIDEBAR);
+    sideBar.setPrefWidth(220);
+
+    Text appTitle = new Text("TrailTales");
+    appTitle.setFont(Font.font("Arial", FontWeight.BOLD, 22));
+    appTitle.setFill(Color.WHITE);
+    HBox titleBox = new HBox(appTitle);
+    titleBox.setAlignment(Pos.CENTER);
+    titleBox.setPadding(new Insets(15, 0, 20, 0));
+    sideBar.getChildren().add(titleBox);
+
+    Button journeysBtn = createSidebarButton("Подорожі");
+    journeysBtn.setOnAction(
+        e -> {
+          mainLayout.setCenter(journeyViewManager.createJourneyPane());
+          setActiveSidebarButton(journeysBtn);
+        });
+
+    Button eventsBtn = createSidebarButton("Події");
+    eventsBtn.setOnAction(
+        e -> {
+          mainLayout.setCenter(eventViewManager.createEventPane());
+          setActiveSidebarButton(eventsBtn);
+        });
+
+    Button tagsBtn = createSidebarButton("Теги");
+    tagsBtn.setOnAction(
+        e -> {
+          mainLayout.setCenter(tagViewManager.createTagPane());
+          setActiveSidebarButton(tagsBtn);
+        });
+
+    Button locationsBtn = createSidebarButton("Локації");
+    locationsBtn.setOnAction(
+        e -> {
+          mainLayout.setCenter(locationViewManager.createLocationPane());
+          setActiveSidebarButton(locationsBtn);
+        });
+
+    Button photosBtn = createSidebarButton("Фотографії");
+    photosBtn.setOnAction(
+        e -> {
+          mainLayout.setCenter(photoViewManager.createPhotoPane());
+          setActiveSidebarButton(photosBtn);
+        });
+
+    Button logoutBtn = createSidebarButton("Вийти");
+    logoutBtn.setOnAction(
+        e -> {
+          currentUser = null;
+          logoutCallback.run();
+        });
+
+    sideBar.getChildren().addAll(journeysBtn, eventsBtn, tagsBtn, locationsBtn, photosBtn);
+
+    VBox bottomBox = new VBox(logoutBtn);
+    VBox.setVgrow(bottomBox, Priority.ALWAYS);
+    bottomBox.setAlignment(Pos.BOTTOM_LEFT);
+    sideBar.getChildren().add(bottomBox);
+
+    return sideBar;
   }
 
   private void setActiveSidebarButton(Button activeButton) {
@@ -338,7 +381,6 @@ public class MainApplicationFrame {
       }
     } else {
       addParticipantButton.setDisable(true);
-      removeParticipantButton.setDisable(true);
       participantIdentifierField.setDisable(true);
       participantsTitledPane.setExpanded(false);
       Label infoLabel = new Label("Керування учасниками буде доступне після збереження подорожі.");
@@ -423,9 +465,9 @@ public class MainApplicationFrame {
     saveBtn.setStyle(UIConstants.BUTTON_STYLE_PRIMARY);
     Button cancelBtn = new Button("Скасувати");
     cancelBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
-    HBox buttons = new HBox(10, cancelBtn, saveBtn);
-    buttons.setAlignment(Pos.CENTER_RIGHT);
-    grid.add(buttons, 1, rowIndex);
+    HBox journeyActionButtons = new HBox(10, cancelBtn, saveBtn);
+    journeyActionButtons.setAlignment(Pos.CENTER_RIGHT);
+    grid.add(journeyActionButtons, 1, rowIndex);
 
     saveBtn.setOnAction(
         e -> {
@@ -500,7 +542,6 @@ public class MainApplicationFrame {
             ex.printStackTrace();
           }
         });
-
     cancelBtn.setOnAction(e -> formStage.close());
 
     ScrollPane scrollPane = new ScrollPane(grid);
@@ -512,6 +553,203 @@ public class MainApplicationFrame {
     scene.getStylesheets().add(new PrimerDark().getUserAgentStylesheet());
     formStage.setScene(scene);
     formStage.showAndWait();
+  }
+
+  public void showJourneyDetailsDialog(Journey journey) {
+    Stage dialogStage = new Stage();
+    dialogStage.initModality(Modality.WINDOW_MODAL);
+    dialogStage.initOwner(primaryStage);
+    dialogStage.setTitle("Деталі подорожі: " + journey.getName());
+
+    VBox layout = new VBox(10);
+    layout.setPadding(new Insets(20));
+    layout.setStyle(UIConstants.BACKGROUND_STYLE_SIDEBAR);
+
+    BiFunction<String, String, HBox> createDetailRow =
+        (labelText, valueText) -> {
+          Label label = new Label(labelText + ":");
+          label.setStyle(
+              UIConstants.LABEL_STYLE.replace(
+                  "-fx-min-width: 150px;", "-fx-font-weight: bold; -fx-text-fill: #b0b0b0;"));
+          Text value = new Text(valueText != null ? valueText : "N/A");
+          value.setStyle(UIConstants.VALUE_TEXT_STYLE);
+          value.setWrappingWidth(350);
+          HBox row = new HBox(5, label, value);
+          row.setAlignment(Pos.CENTER_LEFT);
+          return row;
+        };
+
+    Function<List<String>, ListView<String>> createListViewForDetails =
+        (items) -> {
+          ListView<String> listView = new ListView<>();
+          if (items != null && !items.isEmpty()) {
+            listView.setItems(FXCollections.observableArrayList(items));
+          } else {
+            listView.setItems(FXCollections.observableArrayList("Немає даних"));
+          }
+          listView.setPrefHeight(80);
+          listView.setStyle(UIConstants.LIST_VIEW_STYLE);
+          return listView;
+        };
+
+    layout.getChildren().add(createDetailRow.apply("ID Подорожі", journey.getId().toString()));
+    layout.getChildren().add(createDetailRow.apply("Назва", journey.getName()));
+    layout.getChildren().add(createDetailRow.apply("Опис", journey.getDescription()));
+    if (journey.getUser() != null) {
+      layout.getChildren().add(createDetailRow.apply("Власник", journey.getUser().getUsername()));
+    }
+    layout
+        .getChildren()
+        .add(
+            createDetailRow.apply(
+                "Дата початку",
+                journey.getStartDate() != null
+                    ? DATE_FORMATTER.format(journey.getStartDate())
+                    : "N/A"));
+    layout
+        .getChildren()
+        .add(
+            createDetailRow.apply(
+                "Дата завершення",
+                journey.getEndDate() != null
+                    ? DATE_FORMATTER.format(journey.getEndDate())
+                    : "N/A"));
+
+    if (journey.getOriginLocation() != null) {
+      layout
+          .getChildren()
+          .add(
+              createDetailRow.apply(
+                  "Початкова локація",
+                  journey.getOriginLocation().getName()
+                      + (journey.getOriginLocation().getDescription() != null
+                              && !journey.getOriginLocation().getDescription().isEmpty()
+                          ? " (" + journey.getOriginLocation().getDescription() + ")"
+                          : "")));
+    } else {
+      layout.getChildren().add(createDetailRow.apply("Початкова локація", "N/A"));
+    }
+
+    if (journey.getDestinationLocation() != null) {
+      layout
+          .getChildren()
+          .add(
+              createDetailRow.apply(
+                  "Кінцева локація",
+                  journey.getDestinationLocation().getName()
+                      + (journey.getDestinationLocation().getDescription() != null
+                              && !journey.getDestinationLocation().getDescription().isEmpty()
+                          ? " (" + journey.getDestinationLocation().getDescription() + ")"
+                          : "")));
+    } else {
+      layout.getChildren().add(createDetailRow.apply("Кінцева локація", "N/A"));
+    }
+
+    Label tagsLabel = new Label("Теги:");
+    tagsLabel.setStyle(
+        UIConstants.LABEL_STYLE.replace(
+            "-fx-min-width: 150px;", "-fx-font-weight: bold; -fx-text-fill: #b0b0b0;"));
+    layout.getChildren().add(tagsLabel);
+    if (journey.getTags() != null && !journey.getTags().isEmpty()) {
+      String tagsString =
+          journey.getTags().stream().map(Tag::getName).collect(Collectors.joining(", "));
+      Text tagsValue = new Text(tagsString);
+      tagsValue.setStyle(UIConstants.VALUE_TEXT_STYLE);
+      tagsValue.setWrappingWidth(450);
+      layout.getChildren().add(tagsValue);
+    } else {
+      layout.getChildren().add(new Text("Немає тегів"));
+    }
+
+    Label participantsLabel = new Label("Учасники:");
+    participantsLabel.setStyle(
+        UIConstants.LABEL_STYLE.replace(
+            "-fx-min-width: 150px;", "-fx-font-weight: bold; -fx-text-fill: #b0b0b0;"));
+    layout.getChildren().add(participantsLabel);
+    if (journey.getParticipants() != null && !journey.getParticipants().isEmpty()) {
+      layout
+          .getChildren()
+          .add(
+              createListViewForDetails.apply(
+                  journey.getParticipants().stream()
+                      .map(User::getUsername)
+                      .collect(Collectors.toList())));
+    } else {
+      layout.getChildren().add(new Text("Немає учасників"));
+    }
+
+    Label eventsLabel = new Label("Події:");
+    eventsLabel.setStyle(
+        UIConstants.LABEL_STYLE.replace(
+            "-fx-min-width: 150px;", "-fx-font-weight: bold; -fx-text-fill: #b0b0b0;"));
+    layout.getChildren().add(eventsLabel);
+    if (journey.getEvents() != null && !journey.getEvents().isEmpty()) {
+      layout
+          .getChildren()
+          .add(
+              createListViewForDetails.apply(
+                  journey.getEvents().stream()
+                      .map(
+                          event ->
+                              event.getName()
+                                  + (event.getEventDate() != null
+                                      ? " (" + DATE_FORMATTER.format(event.getEventDate()) + ")"
+                                      : ""))
+                      .collect(Collectors.toList())));
+    } else {
+      layout.getChildren().add(new Text("Немає подій"));
+    }
+
+    Label photosLabel = new Label("Фотографії:");
+    photosLabel.setStyle(
+        UIConstants.LABEL_STYLE.replace(
+            "-fx-min-width: 150px;", "-fx-font-weight: bold; -fx-text-fill: #b0b0b0;"));
+    layout.getChildren().add(photosLabel);
+    if (journey.getPhotos() != null && !journey.getPhotos().isEmpty()) {
+      layout
+          .getChildren()
+          .add(
+              createListViewForDetails.apply(
+                  journey.getPhotos().stream()
+                      .map(
+                          photo ->
+                              photo.getFilePath()
+                                  + (photo.getDescription() != null
+                                          && !photo.getDescription().isEmpty()
+                                      ? " - " + photo.getDescription()
+                                      : ""))
+                      .collect(Collectors.toList())));
+    } else {
+      layout.getChildren().add(new Text("Немає фотографій"));
+    }
+
+    layout
+        .getChildren()
+        .add(
+            createDetailRow.apply(
+                "Створено", DATE_FORMATTER.format(journey.getCreatedAt().toLocalDate())));
+    layout
+        .getChildren()
+        .add(
+            createDetailRow.apply(
+                "Оновлено", DATE_FORMATTER.format(journey.getUpdatedAt().toLocalDate())));
+
+    Button closeButton = new Button("Закрити");
+    closeButton.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
+    closeButton.setOnAction(e -> dialogStage.close());
+    HBox buttonBox = new HBox(closeButton);
+    buttonBox.setAlignment(Pos.CENTER_RIGHT);
+    buttonBox.setPadding(new Insets(10, 0, 0, 0));
+    layout.getChildren().add(buttonBox);
+
+    ScrollPane scrollPane = new ScrollPane(layout);
+    scrollPane.setFitToWidth(true);
+    scrollPane.setStyle(UIConstants.SCROLL_PANE_STYLE);
+
+    Scene dialogScene = new Scene(scrollPane, 500, 650);
+    dialogScene.getStylesheets().add(new PrimerDark().getUserAgentStylesheet());
+    dialogStage.setScene(dialogScene);
+    dialogStage.showAndWait();
   }
 
   public void showEventFormScene(Event eventToEdit, EventViewManager manager) {
@@ -598,9 +836,9 @@ public class MainApplicationFrame {
     saveBtn.setStyle(UIConstants.BUTTON_STYLE_PRIMARY);
     Button cancelBtn = new Button("Скасувати");
     cancelBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
-    HBox buttons = new HBox(10, cancelBtn, saveBtn);
-    buttons.setAlignment(Pos.CENTER_RIGHT);
-    grid.add(buttons, 1, rowIndex);
+    HBox eventActionButtons = new HBox(10, cancelBtn, saveBtn);
+    eventActionButtons.setAlignment(Pos.CENTER_RIGHT);
+    grid.add(eventActionButtons, 1, rowIndex);
 
     saveBtn.setOnAction(
         e -> {
@@ -714,9 +952,9 @@ public class MainApplicationFrame {
     saveBtn.setStyle(UIConstants.BUTTON_STYLE_PRIMARY);
     Button cancelBtn = new Button("Скасувати");
     cancelBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
-    HBox buttons = new HBox(10, cancelBtn, saveBtn);
-    buttons.setAlignment(Pos.CENTER_RIGHT);
-    grid.add(buttons, 1, rowIndex);
+    HBox locationActionButtons = new HBox(10, cancelBtn, saveBtn);
+    locationActionButtons.setAlignment(Pos.CENTER_RIGHT);
+    grid.add(locationActionButtons, 1, rowIndex);
 
     saveBtn.setOnAction(
         e -> {
@@ -784,13 +1022,10 @@ public class MainApplicationFrame {
     TextField filePathField = new TextField();
     filePathField.setEditable(false);
     filePathField.setStyle(UIConstants.INPUT_STYLE);
-    Button chooseFileBtn = new Button("Обрати файл...");
-    chooseFileBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
-    HBox fileBox = new HBox(5, filePathField, chooseFileBtn);
-    GridPane.setHgrow(fileBox, Priority.ALWAYS);
-    grid.add(fileBox, 1, rowIndex++);
 
     final File[] selectedFile = new File[1];
+    Button chooseFileBtn = new Button("Обрати файл...");
+    chooseFileBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
     chooseFileBtn.setOnAction(
         e -> {
           FileChooser fileChooser = new FileChooser();
@@ -808,6 +1043,10 @@ public class MainApplicationFrame {
           }
         });
 
+    HBox fileBox = new HBox(5, filePathField, chooseFileBtn);
+    GridPane.setHgrow(filePathField, Priority.ALWAYS);
+    grid.add(fileBox, 1, rowIndex++);
+
     Label descLabel = new Label("Опис:");
     descLabel.setStyle(UIConstants.LABEL_STYLE);
     grid.add(descLabel, 0, rowIndex);
@@ -821,9 +1060,9 @@ public class MainApplicationFrame {
     saveBtn.setStyle(UIConstants.BUTTON_STYLE_PRIMARY);
     Button cancelBtn = new Button("Скасувати");
     cancelBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
-    HBox buttons = new HBox(10, cancelBtn, saveBtn);
-    buttons.setAlignment(Pos.CENTER_RIGHT);
-    grid.add(buttons, 1, rowIndex);
+    HBox photoUploadButtons = new HBox(10, cancelBtn, saveBtn);
+    photoUploadButtons.setAlignment(Pos.CENTER_RIGHT);
+    grid.add(photoUploadButtons, 1, rowIndex);
 
     saveBtn.setOnAction(
         e -> {
@@ -891,9 +1130,9 @@ public class MainApplicationFrame {
     saveBtn.setStyle(UIConstants.BUTTON_STYLE_PRIMARY);
     Button cancelBtn = new Button("Скасувати");
     cancelBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
-    HBox buttons = new HBox(10, cancelBtn, saveBtn);
-    buttons.setAlignment(Pos.CENTER_RIGHT);
-    grid.add(buttons, 1, rowIndex);
+    HBox tagActionButtons = new HBox(10, cancelBtn, saveBtn);
+    tagActionButtons.setAlignment(Pos.CENTER_RIGHT);
+    grid.add(tagActionButtons, 1, rowIndex);
 
     saveBtn.setOnAction(
         e -> {
@@ -967,11 +1206,8 @@ public class MainApplicationFrame {
     saveButton.setStyle(UIConstants.BUTTON_STYLE_PRIMARY);
     Button cancelButton = new Button("Скасувати");
     cancelButton.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
-
-    HBox buttonsBox = new HBox(10, cancelButton, saveButton);
-    buttonsBox.setAlignment(Pos.CENTER_RIGHT);
-
-    vbox.getChildren().addAll(currentDescLabel, newDescriptionArea, buttonsBox);
+    HBox photoDescButtons = new HBox(10, cancelButton, saveButton);
+    photoDescButtons.setAlignment(Pos.CENTER_RIGHT);
 
     saveButton.setOnAction(
         e -> {
@@ -990,8 +1226,9 @@ public class MainApplicationFrame {
                 "Не вдалося оновити опис: " + ex.getMessage());
           }
         });
-
     cancelButton.setOnAction(e -> dialogStage.close());
+
+    vbox.getChildren().addAll(currentDescLabel, newDescriptionArea, photoDescButtons);
 
     Scene dialogScene = new Scene(vbox, 400, 250);
     dialogScene.getStylesheets().add(new PrimerDark().getUserAgentStylesheet());
