@@ -3,7 +3,7 @@ package com.trailtales.app;
 import com.trailtales.config.AppConfig;
 import com.trailtales.entity.User;
 import com.trailtales.ui.LoginView;
-import com.trailtales.ui.MainApplicationFrame; // Новий імпорт
+import com.trailtales.ui.MainApplicationFrame;
 import javafx.application.Application;
 import javafx.stage.Stage;
 import org.springframework.context.ApplicationContext;
@@ -12,7 +12,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 public class MainApp extends Application {
 
   private ApplicationContext springContext;
-  private Stage primaryStage; // Зберігаємо primaryStage для передачі
+  private Stage primaryStage;
 
   @Override
   public void init() {
@@ -22,23 +22,24 @@ public class MainApp extends Application {
   @Override
   public void start(Stage primaryStage) {
     this.primaryStage = primaryStage;
-    Application.setUserAgentStylesheet(new atlantafx.base.theme.PrimerDark().getUserAgentStylesheet()); // Застосовуємо тему тут
-
+    Application.setUserAgentStylesheet(
+        new atlantafx.base.theme.PrimerDark().getUserAgentStylesheet());
     showLoginView();
   }
 
   public void showLoginView() {
-    LoginView loginView = new LoginView(springContext, this::showMainApplicationFrame); // Передаємо callback
+    LoginView loginView = new LoginView(springContext, this::showMainApplicationFrame);
     primaryStage.setScene(loginView.createLoginScene(primaryStage));
     primaryStage.setTitle("TrailTales - Вхід");
     primaryStage.show();
   }
 
   public void showMainApplicationFrame(User loggedInUser) {
-    MainApplicationFrame mainFrame = new MainApplicationFrame(springContext, loggedInUser, this::showLoginViewAfterLogout);
+    MainApplicationFrame mainFrame =
+        new MainApplicationFrame(
+            springContext, loggedInUser, this::showLoginViewAfterLogout, this.primaryStage);
     primaryStage.setScene(mainFrame.createMainScene());
     primaryStage.setTitle("TrailTales - Головна");
-    // Розміри можна встановити тут або в MainApplicationFrame
     primaryStage.setMinWidth(1000);
     primaryStage.setMinHeight(700);
     primaryStage.setWidth(1200);
@@ -47,7 +48,7 @@ public class MainApp extends Application {
   }
 
   public void showLoginViewAfterLogout() {
-    showLoginView(); // Просто показуємо вікно входу знову
+    showLoginView();
   }
 
   public static void main(String[] args) {
