@@ -5,7 +5,7 @@ import com.trailtales.entity.RoleName;
 import com.trailtales.entity.User;
 import com.trailtales.service.JourneyService;
 import com.trailtales.ui.MainApplicationFrame;
-import com.trailtales.ui.UIConstants;
+import com.trailtales.ui.util.UIConstants;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -25,7 +25,7 @@ public class JourneyViewManager {
   private final MainApplicationFrame mainAppFrame;
   private final AtomicBoolean showingAllJourneys = new AtomicBoolean(false);
   private final AtomicBoolean showingParticipatedJourneys =
-      new AtomicBoolean(false); // Новий прапорець
+      new AtomicBoolean(false); 
 
   private ListView<Journey> journeyListView;
   private TextField searchField;
@@ -55,9 +55,8 @@ public class JourneyViewManager {
     journeyListView = new ListView<>();
     journeyListView.setId("journeyListView");
     journeyListView.setStyle(UIConstants.LIST_VIEW_STYLE);
-    // CellFactory буде встановлено в refreshJourneyList, щоб коректно відображати статус
 
-    refreshJourneyList(searchField.getText()); // Перше завантаження списку
+    refreshJourneyList(searchField.getText());
     searchField.textProperty().addListener((obs, oldVal, newVal) -> refreshJourneyList(newVal));
 
     Button createBtn = new Button("Створити");
@@ -65,12 +64,18 @@ public class JourneyViewManager {
     Button editBtn = new Button("Редагувати");
     editBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
     Button deleteBtn = new Button("Видалити");
-    deleteBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
+    deleteBtn.setStyle(
+        UIConstants.BUTTON_STYLE_SECONDARY); 
+
+    Button viewDetailsBtn = new Button("Переглянути деталі"); 
+    viewDetailsBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
+    viewDetailsBtn.setDisable(true); 
+
     Button viewAllBtn = new Button("Всі подорожі");
     viewAllBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
     Button myJourneysBtn = new Button("Мої подорожі");
     myJourneysBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
-    Button participatedJourneysBtn = new Button("Де я учасник"); // Нова кнопка
+    Button participatedJourneysBtn = new Button("Де я учасник");
     participatedJourneysBtn.setStyle(UIConstants.BUTTON_STYLE_SECONDARY);
 
     if (currentUser == null
@@ -82,13 +87,15 @@ public class JourneyViewManager {
 
     editBtn.setDisable(true);
     deleteBtn.setDisable(true);
+
     journeyListView
         .getSelectionModel()
         .selectedItemProperty()
         .addListener(
             (obs, oldSelection, newSelection) -> {
               boolean isSelected = newSelection != null;
-              // Дозволити редагування/видалення тільки власнику подорожі
+              viewDetailsBtn.setDisable(!isSelected); 
+
               boolean canEditOrDelete =
                   isSelected
                       && currentUser != null
@@ -136,29 +143,41 @@ public class JourneyViewManager {
           }
         });
 
+    viewDetailsBtn.setOnAction(
+        e -> { 
+          Journey selectedJourney = journeyListView.getSelectionModel().getSelectedItem();
+          if (selectedJourney != null) {
+            mainAppFrame.showJourneyDetailsDialog(selectedJourney);
+          }
+        });
+
     viewAllBtn.setOnAction(
         e -> {
           showingAllJourneys.set(true);
-          showingParticipatedJourneys.set(false); // Скидаємо інший фільтр
+          showingParticipatedJourneys.set(false);
           refreshJourneyList(searchField.getText());
         });
     myJourneysBtn.setOnAction(
         e -> {
           showingAllJourneys.set(false);
-          showingParticipatedJourneys.set(false); // Скидаємо інший фільтр
+          showingParticipatedJourneys.set(false);
           refreshJourneyList(searchField.getText());
         });
     participatedJourneysBtn.setOnAction(
-        e -> { // Дія для нової кнопки
-          showingAllJourneys.set(false); // Скидаємо інший фільтр
+        e -> {
+          showingAllJourneys.set(false);
           showingParticipatedJourneys.set(true);
           refreshJourneyList(searchField.getText());
         });
 
-    HBox filterButtons =
-        new HBox(10, myJourneysBtn, viewAllBtn, participatedJourneysBtn); // Додаємо нову кнопку
+    HBox filterButtons = new HBox(10, myJourneysBtn, participatedJourneysBtn);
+    if (viewAllBtn.isManaged()) { 
+      filterButtons.getChildren().add(viewAllBtn);
+    }
     filterButtons.setAlignment(Pos.CENTER_LEFT);
-    HBox crudButtonsBox = new HBox(10, createBtn, editBtn, deleteBtn);
+
+    HBox crudButtonsBox =
+        new HBox(10, createBtn, editBtn, deleteBtn, viewDetailsBtn); 
     crudButtonsBox.setAlignment(Pos.CENTER_RIGHT);
 
     GridPane controlsGrid = new GridPane();
@@ -170,8 +189,10 @@ public class JourneyViewManager {
     col1.setHgrow(Priority.ALWAYS);
     ColumnConstraints col2 = new ColumnConstraints();
     col2.setHgrow(Priority.SOMETIMES);
+    col2.setMinWidth(Control.USE_PREF_SIZE); 
     ColumnConstraints col3 = new ColumnConstraints();
     col3.setHgrow(Priority.SOMETIMES);
+    col3.setMinWidth(Control.USE_PREF_SIZE); 
     controlsGrid.getColumnConstraints().addAll(col1, col2, col3);
 
     layout.getChildren().addAll(controlsGrid, journeyListView);
@@ -236,12 +257,10 @@ public class JourneyViewManager {
                   setStyle(UIConstants.LIST_CELL_STYLE_NORMAL);
                 } else {
                   String displayText = item.getName();
-                  User journeyOwner = item.getUser(); // Власник подорожі, завантажений репозиторієм
+                  User journeyOwner = item.getUser(); 
 
                   if (journeyOwner != null) {
                     if (showingParticipatedJourneys.get()) {
-                      // Якщо поточний користувач є власником у списку "Де я учасник" (що можливо,
-                      // якщо він додав себе)
                       if (journeyOwner.getId().equals(currentUser.getId())) {
                         displayText += " (Ви власник)";
                       } else {
@@ -250,8 +269,6 @@ public class JourneyViewManager {
                     } else if (showingAllJourneys.get()) {
                       displayText += " (Автор: " + journeyOwner.getUsername() + ")";
                     }
-                    // Для "Мої подорожі" додаткова інформація про власника не потрібна, бо це
-                    // завжди currentUser
                   }
 
                   setText(displayText);
